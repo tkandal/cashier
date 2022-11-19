@@ -39,6 +39,7 @@ func TestParseCertificate(t *testing.T) {
 }
 
 func testStore(t *testing.T, db CertStorer) {
+
 	defer db.Close()
 
 	r := &CertRecord{
@@ -66,6 +67,7 @@ func testStore(t *testing.T, db CertStorer) {
 		t.Error(err)
 	}
 	if recs[0].KeyID != r.KeyID {
+		t.Errorf("key = %s, r = %s", recs[0].KeyID, r.KeyID)
 		t.Error("key mismatch")
 	}
 
@@ -119,6 +121,28 @@ func TestMySQLStore(t *testing.T) {
 		"address":  os.Getenv("MYSQL_TEST_HOST"),
 	}
 	if testUser, ok := os.LookupEnv("MYSQL_TEST_USER"); ok {
+		sqlConfig["username"] = testUser
+	} else {
+		sqlConfig["username"] = u.Username
+	}
+	db, err := newSQLStore(sqlConfig)
+	if err != nil {
+		t.Error(err)
+	}
+	testStore(t, db)
+}
+
+func TestPostgresStore(t *testing.T) {
+	if os.Getenv("PG_TEST") == "" {
+		t.Skip("No PG_TEST environment variable")
+	}
+	u, _ := user.Current()
+	sqlConfig := map[string]string{
+		"type":     "postgres",
+		"password": os.Getenv("PG_TEST_PASS"),
+		"address":  os.Getenv("PG_TEST_HOST"),
+	}
+	if testUser, ok := os.LookupEnv("PG_TEST_USER"); ok {
 		sqlConfig["username"] = testUser
 	} else {
 		sqlConfig["username"] = u.Username

@@ -1,6 +1,6 @@
 -- +migrate Up
 CREATE TABLE IF NOT EXISTS issued_certs (
-  key_id character(255) NOT NULL,
+  key_id character varying (255) NOT NULL,
   principals character(255) DEFAULT '[]',
   created_at timestamp DEFAULT '1970-01-01 00:00:01',
   expires_at timestamp DEFAULT '1970-01-01 00:00:01',

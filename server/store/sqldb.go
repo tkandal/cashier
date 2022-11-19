@@ -40,6 +40,7 @@ type sqlStore struct {
 	listAll     *sqlx.Stmt
 	listCurrent *sqlx.Stmt
 	revoked     *sqlx.Stmt
+	driver      string
 }
 
 // newSQLStore returns a *sql.DB CertStorer.
@@ -97,7 +98,8 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	}
 
 	db := &sqlStore{
-		conn: conn,
+		conn:   conn,
+		driver: driver,
 	}
 
 	switch driver {
@@ -106,7 +108,7 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	case "mysql", "sqlite":
 		db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES (?, ?, ?, ?, ?, ?)")
 	default:
-		return nil, ErrDriverNotSupported
+		db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES (?, ?, ?, ?, ?, ?)")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare set: %v", err)
@@ -114,27 +116,27 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 
 	switch driver {
 	case postgres:
-		db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = $1")
+		db.get, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE key_id = $1")
 	case "mysql", "sqlite":
-		db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = ?")
+		db.get, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE key_id = ?")
 	default:
-		return nil, ErrDriverNotSupported
+		db.get, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE key_id = ?")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare get: %v", err)
 	}
 
-	if db.listAll, err = conn.Preparex("SELECT * FROM issued_certs"); err != nil {
+	if db.listAll, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs"); err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare listAll: %v", err)
 	}
 
 	switch driver {
 	case postgres:
-		db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= $1")
+		db.listCurrent, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE expires_at >= $1")
 	case "mysql", "sqlite":
-		db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= ?")
+		db.listCurrent, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE expires_at >= ?")
 	default:
-		return nil, ErrDriverNotSupported
+		db.listCurrent, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE expires_at >= ?")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare listCurrent: %v", err)
@@ -142,11 +144,11 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 
 	switch driver {
 	case postgres:
-		db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND $1 <= expires_at")
+		db.revoked, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE revoked = true AND $1 <= expires_at")
 	case "mysql", "sqlite":
-		db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND ? <= expires_at")
+		db.revoked, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE revoked = 1 AND ? <= expires_at")
 	default:
-		return nil, ErrDriverNotSupported
+		db.revoked, err = conn.Preparex("SELECT key_id, principals, created_at, expires_at, raw_key, message FROM issued_certs WHERE revoked = 1 AND ? <= expires_at")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare revoked: %v", err)
@@ -222,7 +224,24 @@ func (db *sqlStore) Revoke(ids []string) error {
 	if err = db.conn.Ping(); err != nil {
 		return errors.Wrap(err, "unable to connect to database")
 	}
-	q, args, err := sqlx.In("UPDATE issued_certs SET revoked = 1 WHERE key_id IN (?)", ids)
+	var q string
+	var args []interface{}
+
+	switch db.driver {
+	case postgres:
+		q = "UPDATE issued_certs SET revoked = true WHERE key_id = $1"
+		for _, id := range ids {
+			_, err = db.conn.Exec(q, id)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case "mysql", "sqlite":
+		q, args, err = sqlx.In("UPDATE issued_certs SET revoked = 1 WHERE key_id IN (?)", ids)
+	default:
+		q, args, err = sqlx.In("UPDATE issued_certs SET revoked = 1 WHERE key_id IN (?)", ids)
+	}
 	if err != nil {
 		return err
 	}
