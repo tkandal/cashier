@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/homemade/scl v0.0.0-20170314142303-7ac234959fe8
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/lib/pq v1.10.0
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/mikesmitty/edkey v0.0.0-20170222072505-3356ea4e686a
 	github.com/mitchellh/go-homedir v1.1.0

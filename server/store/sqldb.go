@@ -3,17 +3,23 @@ package store
 import (
 	"embed"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	"io/fs"
 	"log"
 	"net"
+	"net/url"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/nsheridan/cashier/server/config"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
+)
+
+const (
+	postgres = "postgres"
 )
 
 var _ CertStorer = (*sqlStore)(nil)
@@ -21,7 +27,7 @@ var _ CertStorer = (*sqlStore)(nil)
 //go:embed migrations
 var migrationFS embed.FS
 
-// sqlStore is an sql-based CertStorer
+// sqlStore is a sql-based CertStorer
 type sqlStore struct {
 	conn *sqlx.DB
 
@@ -58,6 +64,24 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	case "sqlite":
 		driver = "sqlite3"
 		dsn = c["filename"]
+	case postgres:
+		driver = postgres
+		address := c["address"]
+		_, _, err := net.SplitHostPort(address)
+		if err != nil {
+			address = address + ":5432"
+		}
+		pgURL := url.URL{
+			Scheme: driver,
+			User:   url.UserPassword(c["username"], c["password"]),
+			Host:   address,
+			Path:   c["dbname"],
+		}
+		q := pgURL.Query()
+		q.Add("sslmode", "disable")
+		q.Add("connect_timeout", "20")
+		pgURL.RawQuery = q.Encode()
+		dsn = pgURL.String()
 	}
 
 	conn, err := sqlx.Connect(driver, dsn)
@@ -72,26 +96,55 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 		conn: conn,
 	}
 
-	if db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES (?, ?, ?, ?, ?, ?)"); err != nil {
+	switch driver {
+	case postgres:
+		db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES ($1, $2, $3, $4, $5, $6)")
+	default:
+		db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES (?, ?, ?, ?, ?, ?)")
+	}
+	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare set: %v", err)
 	}
-	if db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = ?"); err != nil {
+
+	switch driver {
+	case postgres:
+		db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = $1")
+	default:
+		db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = ?")
+	}
+	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare get: %v", err)
 	}
+
 	if db.listAll, err = conn.Preparex("SELECT * FROM issued_certs"); err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare listAll: %v", err)
 	}
-	if db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= ?"); err != nil {
+
+	switch driver {
+	case postgres:
+		db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= $1")
+	default:
+		db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= ?")
+	}
+	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare listCurrent: %v", err)
 	}
-	if db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND ? <= expires_at"); err != nil {
+
+	switch driver {
+	case postgres:
+		db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND $1 <= expires_at")
+	default:
+		db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND ? <= expires_at")
+	}
+	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare revoked: %v", err)
 	}
+
 	return db, nil
 }
 
 func autoMigrate(driver string, conn *sqlx.DB) error {
-	fs.WalkDir(migrationFS, ".", func(path string, d fs.DirEntry, err error) error {
+	_ = fs.WalkDir(migrationFS, ".", func(path string, d fs.DirEntry, err error) error {
 		fmt.Println(path)
 		return nil
 	})
@@ -133,12 +186,12 @@ func (db *sqlStore) SetRecord(rec *CertRecord) error {
 }
 
 // List returns all recorded certs.
-// By default only active certs are returned.
+// Default only active certs are returned.
 func (db *sqlStore) List(includeExpired bool) ([]*CertRecord, error) {
 	if err := db.conn.Ping(); err != nil {
 		return nil, errors.Wrap(err, "unable to connect to database")
 	}
-	recs := []*CertRecord{}
+	recs := make([]*CertRecord, 0)
 	if includeExpired {
 		if err := db.listAll.Select(&recs); err != nil {
 			return nil, err

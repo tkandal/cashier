@@ -19,11 +19,11 @@ type Config struct {
 }
 
 func setDefaults() {
-	viper.BindPFlag("ca", pflag.Lookup("ca"))
-	viper.BindPFlag("key_type", pflag.Lookup("key_type"))
-	viper.BindPFlag("key_size", pflag.Lookup("key_size"))
-	viper.BindPFlag("validity", pflag.Lookup("validity"))
-	viper.BindPFlag("key_file_prefix", pflag.Lookup("key_file_prefix"))
+	_ = viper.BindPFlag("ca", pflag.Lookup("ca"))
+	_ = viper.BindPFlag("key_type", pflag.Lookup("key_type"))
+	_ = viper.BindPFlag("key_size", pflag.Lookup("key_size"))
+	_ = viper.BindPFlag("validity", pflag.Lookup("validity"))
+	_ = viper.BindPFlag("key_file_prefix", pflag.Lookup("key_file_prefix"))
 	viper.SetDefault("validateTLSCertificate", true)
 }
 

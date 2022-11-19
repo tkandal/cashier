@@ -74,7 +74,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error connecting to agent: %v\n", err)
 	}
-	defer sock.Close()
+	defer func() {
+		_ = sock.Close()
+	}()
 	a := agent.NewClient(sock)
 	if err := client.InstallCert(a, cert, priv); err != nil {
 		log.Fatalln(err)

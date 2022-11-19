@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/nsheridan/cashier/server/auth/dataporten"
 	"log"
 	"net"
 	"net/http"
@@ -106,6 +107,8 @@ func Run(conf *config.Config) {
 		authprovider, err = google.New(conf.Auth)
 	case "microsoft":
 		authprovider, err = microsoft.New(conf.Auth)
+	case "dataporten":
+		authprovider, err = dataporten.New(conf.Auth)
 	default:
 		log.Fatalf("Unknown provider %s\n", conf.Auth.Provider)
 	}
@@ -153,17 +156,18 @@ func Run(conf *config.Config) {
 	ctx.router.Use(handlers.RecoveryHandler())
 	r := handlers.LoggingHandler(logfile, ctx.router)
 	s := &http.Server{
-		Handler:      r,
-		ReadTimeout:  20 * time.Second,
-		WriteTimeout: 20 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Handler:           r,
+		ReadTimeout:       20 * time.Second,
+		WriteTimeout:      20 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 20 * time.Second,
 	}
 
 	log.Printf("Starting server on %s", laddr)
 	s.Serve(l)
 }
 
-// mwVersion is middleware to add a X-Cashier-Version header to the response.
+// mwVersion is middleware to add an X-Cashier-Version header to the response.
 func mwVersion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Cashier-Version", lib.Version)
@@ -205,22 +209,22 @@ type app struct {
 func (a *app) routes() {
 	// login required
 	csrfHandler := csrf.Protect([]byte(a.config.CSRFSecret), csrf.Secure(a.config.UseTLS))
-	a.router.Methods("GET").Path("/").Handler(a.authed(http.HandlerFunc(a.index)))
-	a.router.Methods("POST").Path("/admin/revoke").Handler(a.authed(csrfHandler(http.HandlerFunc(a.revoke))))
-	a.router.Methods("GET").Path("/admin/certs").Handler(a.authed(csrfHandler(http.HandlerFunc(a.getAllCerts))))
-	a.router.Methods("GET").Path("/admin/certs.json").Handler(a.authed(http.HandlerFunc(a.getCertsJSON)))
+	a.router.Methods(http.MethodGet).Path("/").Handler(a.authed(http.HandlerFunc(a.index)))
+	a.router.Methods(http.MethodPost).Path("/admin/revoke").Handler(a.authed(csrfHandler(http.HandlerFunc(a.revoke))))
+	a.router.Methods(http.MethodGet).Path("/admin/certs").Handler(a.authed(csrfHandler(http.HandlerFunc(a.getAllCerts))))
+	a.router.Methods(http.MethodGet).Path("/admin/certs.json").Handler(a.authed(http.HandlerFunc(a.getCertsJSON)))
 
 	// no login required
-	a.router.Methods("GET").Path("/auth/login").HandlerFunc(a.auth)
-	a.router.Methods("GET").Path("/auth/callback").HandlerFunc(a.auth)
-	a.router.Methods("GET").Path("/revoked").HandlerFunc(a.revoked)
-	a.router.Methods("POST").Path("/sign").HandlerFunc(a.sign)
+	a.router.Methods(http.MethodGet).Path("/auth/login").HandlerFunc(a.auth)
+	a.router.Methods(http.MethodGet).Path("/auth/callback").HandlerFunc(a.auth)
+	a.router.Methods(http.MethodGet).Path("/revoked").HandlerFunc(a.revoked)
+	a.router.Methods(http.MethodPost).Path("/sign").HandlerFunc(a.sign)
 
-	a.router.Methods("GET").Path("/healthcheck").HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	a.router.Methods(http.MethodGet).Path("/healthcheck").HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "ok")
+		_, _ = fmt.Fprintln(w, http.StatusText(http.StatusOK))
 	})
-	a.router.Methods("GET").Path("/metrics").Handler(promhttp.Handler())
+	a.router.Methods(http.MethodGet).Path("/metrics").Handler(promhttp.Handler())
 
 	// static files
 	a.router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
@@ -229,7 +233,7 @@ func (a *app) routes() {
 func (a *app) getAuthToken(r *http.Request) *oauth2.Token {
 	token := &oauth2.Token{}
 	marshalled := a.getSessionVariable(r, "token")
-	json.Unmarshal([]byte(marshalled), token)
+	_ = json.Unmarshal([]byte(marshalled), token)
 	return token
 }
 
@@ -250,7 +254,7 @@ func (a *app) getSessionVariable(r *http.Request, key string) string {
 func (a *app) setSessionVariable(w http.ResponseWriter, r *http.Request, key, value string) {
 	session, _ := a.cookiestore.Get(r, "session")
 	session.Values[key] = value
-	session.Save(r, w)
+	_ = session.Save(r, w)
 }
 
 func (a *app) authed(next http.Handler) http.Handler {

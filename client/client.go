@@ -3,16 +3,17 @@ package client
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,6 +21,13 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+)
+
+const (
+	allRead         = os.FileMode(0644)
+	onlyOwner       = os.FileMode(0600)
+	reqTimeout      = 30 * time.Second
+	applicationJSON = "application/json"
 )
 
 var (
@@ -34,12 +42,12 @@ func SavePublicFiles(prefix string, cert *ssh.Certificate, pub ssh.PublicKey) er
 	pubTxt := ssh.MarshalAuthorizedKey(pub)
 	certPubTxt := []byte(cert.Type() + " " + base64.StdEncoding.EncodeToString(cert.Marshal()))
 
-	_prefix := prefix + "/id_" + cert.KeyId
+	_prefix := filepath.Join(prefix, "id_"+cert.KeyId)
 
-	if err := ioutil.WriteFile(_prefix+".pub", pubTxt, 0644); err != nil {
+	if err := os.WriteFile(_prefix+".pub", pubTxt, allRead); err != nil {
 		return err
 	}
-	err := ioutil.WriteFile(_prefix+"-cert.pub", certPubTxt, 0644)
+	err := os.WriteFile(_prefix+"-cert.pub", certPubTxt, allRead)
 
 	return err
 }
@@ -49,12 +57,12 @@ func SavePrivateFiles(prefix string, cert *ssh.Certificate, key Key) error {
 	if prefix == "" {
 		return nil
 	}
-	_prefix := prefix + "/id_" + cert.KeyId
+	_prefix := filepath.Join(prefix, "id_"+cert.KeyId)
 	pemBlock, err := pemBlockForKey(key)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(_prefix, pem.EncodeToMemory(pemBlock), 0600)
+	err = os.WriteFile(_prefix, pem.EncodeToMemory(pemBlock), onlyOwner)
 	return err
 }
 
@@ -93,25 +101,35 @@ func send(sr *lib.SignRequest, token, ca string, ValidateTLSCertificate bool) (*
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: !ValidateTLSCertificate},
 		},
-		Timeout: 30 * time.Second,
+		Timeout: reqTimeout,
 	}
 	u, err := url.Parse(ca)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to parse CA url")
 	}
-	u.Path = path.Join(u.Path, "/sign")
-	req, err := http.NewRequest("POST", u.String(), bytes.NewReader(s))
+	if strings.HasSuffix(u.Path, "/") {
+		u.Path = u.Path[:len(u.Path)-1]
+	}
+	u.Path = fmt.Sprintf("%s/sign", u.Path)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(reqTimeout))
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(s))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Add("Accept", "application/json")
+	req.Header.Set("Content-Type", applicationJSON+";charset=utf-8")
+	req.Header.Add("Accept", applicationJSON)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
+
 	signResponse := &lib.SignResponse{}
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusForbidden && strings.HasPrefix(resp.Header.Get("X-Need-Reason"), "required") {
@@ -159,7 +177,7 @@ func Sign(pub ssh.PublicKey, token string, conf *Config) (*ssh.Certificate, erro
 			return nil, errors.Wrap(err, "error sending request to CA")
 		}
 	}
-	if resp.Status != "ok" {
+	if strings.ToLower(resp.Status) != "ok" {
 		return nil, fmt.Errorf("bad response from CA: %s", resp.Response)
 	}
 	k, _, _, _, err := ssh.ParseAuthorizedKey([]byte(resp.Response))
