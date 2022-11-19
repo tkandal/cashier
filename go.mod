@@ -3,6 +3,7 @@ module github.com/tkandal/cashier
 go 1.19
 
 require (
+	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/gorilla/csrf v1.7.1
