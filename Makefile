@@ -86,3 +86,7 @@ check:
 .PHONY: gosec
 gosec:
 	gosec ./...
+
+.PHONY: fmt
+fmt:
+	gofmt -w .

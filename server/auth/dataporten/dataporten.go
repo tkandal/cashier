@@ -39,14 +39,17 @@ type Config struct {
 
 // New creates a new provider.
 func New(c *config.Auth) (*Config, error) {
-	logOpt, _ := strconv.ParseBool(c.ProviderOpts["log"])
+	logOpt, err := strconv.ParseBool(c.ProviderOpts["log"])
+	if err != nil {
+		logOpt = false
+	}
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))
 	defer cancel()
 
 	provider, err := oidc.NewProvider(ctx, c.Provider)
 	if err != nil {
-		log.Printf("dataporten: get oauth2 provider failed; error = %v\n", err)
+		log.Printf("dataporten: get OIDC provider failed; error = %v\n", err)
 		return nil, err
 	}
 	oauth2Config := &oauth2.Config{
@@ -127,7 +130,9 @@ func (c *Config) Username(token *oauth2.Token) string {
 		c.logMsg(fmt.Errorf("dataporten: no username was found"))
 		user = ""
 	}
-
+	if idx := strings.IndexByte(user, '@'); idx > -1 {
+		user = user[:idx]
+	}
 	return user
 }
 
