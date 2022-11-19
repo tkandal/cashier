@@ -10,5 +10,5 @@ http.log
 .idea
 .DS_Store
 coverage.txt
-
+env.bash
 .*.swp
