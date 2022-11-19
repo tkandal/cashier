@@ -60,7 +60,7 @@ The client receives the certificate and loads it and the private key into the ss
 The user can now ssh to the production machine, and continue to ssh to any machine that trusts the CA signing key until the certificate is revoked or expires or is removed from the agent.
 
 # Installing
-Stable versions can be obtained from [the release page](https://github.com/nsheridan/cashier/releases). Releases contain both static and dynamically linked executables. Statically linked executables do not have sqlite support.
+Stable versions can be obtained from [the release page](https://github.com/tkandal/cashier/releases). Releases contain both static and dynamically linked executables. Statically linked executables do not have sqlite support.
 
 Note that installing using standard Go tools is possible, but the master branch should be considered unstable.
 
@@ -193,9 +193,9 @@ Supported options:
 - `permissions`: array of string. Specify the actions the certificate can perform. See the [`-O` option to `ssh-keygen(1)`](http://man.openbsd.org/OpenBSD-current/man1/ssh-keygen.1) for a complete list. e.g. `permissions = ["permit-pty", "permit-port-forwarding", force-command=/bin/ls", "source-address=192.168.0.0/24"]`
 
 ## aws
-AWS configuration is only needed for accessing signing keys stored on S3, and isn't totally necessary even then.  
-The S3 client can be configured using any of [the usual AWS-SDK means](https://github.com/aws/aws-sdk-go/wiki/configuring-sdk) - environment variables, IAM roles etc.  
-It's strongly recommended that signing keys stored on S3 be locked down to specific IAM roles and encrypted using KMS.  
+AWS configuration is only needed for accessing signing keys stored on S3, and isn't totally necessary even then.
+The S3 client can be configured using any of [the usual AWS-SDK means](https://github.com/aws/aws-sdk-go/wiki/configuring-sdk) - environment variables, IAM roles etc.
+It's strongly recommended that signing keys stored on S3 be locked down to specific IAM roles and encrypted using KMS.
 
 - `region`: string. AWS region the bucket resides in, e.g. `us-east-1`.
 - `access_key`: string. AWS Access Key ID. This can be a secret stored in a [vault](https://www.vaultproject.io/) using the form `/vault/path/key` e.g. `/vault/secret/cashier/aws_access_key`.
@@ -208,7 +208,7 @@ Vault support is currently a work-in-progress.
 - `token`: string. Auth token for the vault.
 
 # Usage
-Cashier comes in two parts, a [cli](cmd/cashier) and a [server](cmd/cashierd).  
+Cashier comes in two parts, a [cli](cmd/cashier) and a [server](cmd/cashierd).
 The server is configured using a HCL configuration file - [example](example-server.conf).
 
 For the server you need the following:
@@ -216,7 +216,7 @@ For the server you need the following:
 - OAuth (Google or GitHub) credentials. You may also need to set the callback URL when creating these.
 
 ## Using cashier client
-Once the server is up and running you'll need to configure your client.  
+Once the server is up and running you'll need to configure your client.
 The client is configured using either a [HCL](https://github.com/hashicorp/hcl) configuration file - [example](example-client.conf) - or command-line flags.
 
 - `--ca`          CA server (default "http://localhost:10000").
@@ -227,9 +227,9 @@ The client is configured using either a [HCL](https://github.com/hashicorp/hcl) 
 - `--validity`    Key validity (default 24h).
 
 Running the `cashier` cli tool will open a browser window at the configured CA address.
-The CA will redirect to the auth provider for authorisation, and redirect back to the CA where the access token will printed.  
-Copy the access token. In the terminal where you ran the `cashier` cli paste the token at the prompt.  
-The client will then generate a new ssh key-pair and send the public part to the server (along with the access token).  
+The CA will redirect to the auth provider for authorisation, and redirect back to the CA where the access token will printed.
+Copy the access token. In the terminal where you ran the `cashier` cli paste the token at the prompt.
+The client will then generate a new ssh key-pair and send the public part to the server (along with the access token).
 Once signed the client will install the key and signed certificate in your ssh agent. When the certificate expires it will be removed automatically from the agent.
 
 If you set `key_file_prefix` then the public key and public cert will be written to the files that start with `key_file_prefix` and end with `.pub` and `-cert.pub` respectively.
@@ -241,8 +241,8 @@ Starting with 7.2p1 the two options exist in the `ssh_config` and you'll need to
 Note that like these `ssh_config` options, the `key_file_prefix` supports tilde expansion.
 
 ## Configuring SSH
-The ssh client needs no special configuration, just a running `ssh-agent`.  
-The ssh server needs to trust the public part of the CA signing key. Add something like the following to your `sshd_config`:  
+The ssh client needs no special configuration, just a running `ssh-agent`.
+The ssh server needs to trust the public part of the CA signing key. Add something like the following to your `sshd_config`:
 ```
 TrustedUserCAKeys /etc/ssh/ca.pub
 ```
@@ -251,12 +251,12 @@ where `/etc/ssh/ca.pub` contains the public part of your signing key.
 If you wish to use certificate revocation you need to set the `RevokedKeys` option in sshd_config - see the next section.
 
 ## Revoking certificates
-When a certificate is signed a record is kept in the configured database. You can view issued certs at `http(s)://<ca url>/admin/certs` and also revoke them.  
+When a certificate is signed a record is kept in the configured database. You can view issued certs at `http(s)://<ca url>/admin/certs` and also revoke them.
 The revocation list is served at `http(s)://<ca url>/revoked`. To use it your sshd_config must have `RevokedKeys` set:
 ```
 RevokedKeys /etc/ssh/revoked_keys
 ```
-See the [`RevokedKeys` option in the sshd_config man page](http://man.openbsd.org/OpenBSD-current/man5/sshd_config) for more.  
+See the [`RevokedKeys` option in the sshd_config man page](http://man.openbsd.org/OpenBSD-current/man5/sshd_config) for more.
 Keeping the revoked list up to date can be done with a cron job like:
 ```
 */10 * * * * * curl -s -o /etc/ssh/revoked_keys https://sshca.example.com/revoked
@@ -269,5 +269,5 @@ Remember that the `revoked_keys` file **must** exist and **must** be readable by
 - Host certificates - only user certificates are supported at present.
 
 # Contributing
-Pull requests are welcome but forking Go repos can be a pain. [This is a good guide to forking and creating pull requests for Go projects](https://splice.com/blog/contributing-open-source-git-repositories-go/).  
+Pull requests are welcome but forking Go repos can be a pain. [This is a good guide to forking and creating pull requests for Go projects](https://splice.com/blog/contributing-open-source-git-repositories-go/).
 Dependencies are vendored with [govendor](https://github.com/kardianos/govendor).

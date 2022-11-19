@@ -6,11 +6,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/nsheridan/cashier/lib"
-	"github.com/nsheridan/cashier/server"
-	"github.com/nsheridan/cashier/server/config"
-	"github.com/nsheridan/cashier/server/wkfs/vaultfs"
 	"github.com/nsheridan/wkfs/s3"
+	"github.com/tkandal/cashier/lib"
+	"github.com/tkandal/cashier/server"
+	"github.com/tkandal/cashier/server/config"
+	"github.com/tkandal/cashier/server/wkfs/vaultfs"
 )
 
 var (

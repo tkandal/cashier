@@ -7,8 +7,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/homemade/scl"
-	"github.com/nsheridan/cashier/server/helpers/vault"
 	"github.com/pkg/errors"
+	"github.com/tkandal/cashier/server/helpers/vault"
 )
 
 // Config holds the final server configuration.

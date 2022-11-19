@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/nsheridan/cashier/testdata"
+	"github.com/tkandal/cashier/testdata"
 	"golang.org/x/crypto/ssh"
 )
 

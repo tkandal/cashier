@@ -13,16 +13,20 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/nsheridan/cashier/server/config"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
+	"github.com/tkandal/cashier/server/config"
 )
 
 const (
-	postgres = "postgres"
+	postgres    = "postgres"
+	defaultPort = ":5432"
 )
 
-var _ CertStorer = (*sqlStore)(nil)
+var (
+	_                     CertStorer = (*sqlStore)(nil)
+	ErrDriverNotSupported            = errors.New("sqlStore: driver is not supported")
+)
 
 //go:embed migrations
 var migrationFS embed.FS
@@ -69,7 +73,7 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 		address := c["address"]
 		_, _, err := net.SplitHostPort(address)
 		if err != nil {
-			address = address + ":5432"
+			address = address + defaultPort
 		}
 		pgURL := url.URL{
 			Scheme: driver,
@@ -99,8 +103,10 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	switch driver {
 	case postgres:
 		db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES ($1, $2, $3, $4, $5, $6)")
-	default:
+	case "mysql", "sqlite":
 		db.set, err = conn.Preparex("INSERT INTO issued_certs (key_id, principals, created_at, expires_at, raw_key, message) VALUES (?, ?, ?, ?, ?, ?)")
+	default:
+		return nil, ErrDriverNotSupported
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare set: %v", err)
@@ -109,8 +115,10 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	switch driver {
 	case postgres:
 		db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = $1")
-	default:
+	case "mysql", "sqlite":
 		db.get, err = conn.Preparex("SELECT * FROM issued_certs WHERE key_id = ?")
+	default:
+		return nil, ErrDriverNotSupported
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare get: %v", err)
@@ -123,8 +131,10 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	switch driver {
 	case postgres:
 		db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= $1")
-	default:
+	case "mysql", "sqlite":
 		db.listCurrent, err = conn.Preparex("SELECT * FROM issued_certs WHERE expires_at >= ?")
+	default:
+		return nil, ErrDriverNotSupported
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare listCurrent: %v", err)
@@ -133,8 +143,10 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 	switch driver {
 	case postgres:
 		db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND $1 <= expires_at")
-	default:
+	case "mysql", "sqlite":
 		db.revoked, err = conn.Preparex("SELECT * FROM issued_certs WHERE revoked = 1 AND ? <= expires_at")
+	default:
+		return nil, ErrDriverNotSupported
 	}
 	if err != nil {
 		return nil, fmt.Errorf("sqlStore: prepare revoked: %v", err)

@@ -3,7 +3,7 @@ package testprovider
 import (
 	"time"
 
-	"github.com/nsheridan/cashier/server/auth"
+	"github.com/tkandal/cashier/server/auth"
 
 	"golang.org/x/oauth2"
 )

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nsheridan/cashier/server/auth"
-	"github.com/nsheridan/cashier/server/config"
-	"github.com/nsheridan/cashier/server/metrics"
+	"github.com/tkandal/cashier/server/auth"
+	"github.com/tkandal/cashier/server/config"
+	"github.com/tkandal/cashier/server/metrics"
 
 	githubapi "github.com/google/go-github/github"
 	"golang.org/x/oauth2"

@@ -17,13 +17,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/nsheridan/cashier/lib"
-	"github.com/nsheridan/cashier/server/auth/testprovider"
-	"github.com/nsheridan/cashier/server/config"
-	"github.com/nsheridan/cashier/server/signer"
-	"github.com/nsheridan/cashier/server/store"
-	"github.com/nsheridan/cashier/testdata"
 	"github.com/stripe/krl"
+	"github.com/tkandal/cashier/lib"
+	"github.com/tkandal/cashier/server/auth/testprovider"
+	"github.com/tkandal/cashier/server/config"
+	"github.com/tkandal/cashier/server/signer"
+	"github.com/tkandal/cashier/server/store"
+	"github.com/tkandal/cashier/testdata"
 )
 
 var a *app

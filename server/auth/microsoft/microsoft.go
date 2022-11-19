@@ -7,9 +7,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/nsheridan/cashier/server/auth"
-	"github.com/nsheridan/cashier/server/config"
-	"github.com/nsheridan/cashier/server/metrics"
+	"github.com/tkandal/cashier/server/auth"
+	"github.com/tkandal/cashier/server/config"
+	"github.com/tkandal/cashier/server/metrics"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
@@ -106,7 +106,7 @@ func (c *Config) verifyTenant(token *oauth2.Token) bool {
 	//                    "name": "M365x214355.onmicrosoft.com",
 	//            } ]
 	//   } ]
-	//}
+	// }
 	var value []interface{}
 	var ok bool
 	if value, ok = document["value"].([]interface{}); !ok {

@@ -10,10 +10,10 @@ import (
 	"go4.org/wkfs"
 	_ "go4.org/wkfs/gcs" // Register "/gcs/" as a wkfs.
 
-	"github.com/nsheridan/cashier/lib"
-	"github.com/nsheridan/cashier/server/config"
-	"github.com/nsheridan/cashier/server/store"
 	"github.com/stripe/krl"
+	"github.com/tkandal/cashier/lib"
+	"github.com/tkandal/cashier/server/config"
+	"github.com/tkandal/cashier/server/store"
 	"golang.org/x/crypto/ssh"
 )
 

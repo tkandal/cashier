@@ -12,10 +12,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/nsheridan/cashier/client"
-	"github.com/nsheridan/cashier/lib"
 	"github.com/pkg/browser"
 	"github.com/spf13/pflag"
+	"github.com/tkandal/cashier/client"
+	"github.com/tkandal/cashier/lib"
 	"golang.org/x/crypto/ssh/agent"
 )
 

@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/gorilla/csrf"
-	"github.com/nsheridan/cashier/lib"
-	"github.com/nsheridan/cashier/server/store"
-	"github.com/nsheridan/cashier/server/templates"
 	"github.com/pkg/errors"
+	"github.com/tkandal/cashier/lib"
+	"github.com/tkandal/cashier/server/store"
+	"github.com/tkandal/cashier/server/templates"
 	"golang.org/x/oauth2"
 )
 

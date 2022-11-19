@@ -1,4 +1,4 @@
-module github.com/nsheridan/cashier
+module github.com/tkandal/cashier
 
 go 1.19
 

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nsheridan/cashier/lib"
-	"github.com/nsheridan/cashier/server/store"
-	"github.com/nsheridan/cashier/testdata"
 	"github.com/stripe/krl"
+	"github.com/tkandal/cashier/lib"
+	"github.com/tkandal/cashier/server/store"
+	"github.com/tkandal/cashier/testdata"
 
 	"golang.org/x/crypto/ssh"
 )

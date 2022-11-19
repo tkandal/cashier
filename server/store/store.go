@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nsheridan/cashier/lib"
-	"github.com/nsheridan/cashier/server/config"
+	"github.com/tkandal/cashier/lib"
+	"github.com/tkandal/cashier/server/config"
 	"golang.org/x/crypto/ssh"
 )
 

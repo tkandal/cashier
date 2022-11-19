@@ -1,7 +1,7 @@
 package dataporten
 
 import (
-	"github.com/nsheridan/cashier/server/config"
+	"github.com/tkandal/cashier/server/config"
 	"golang.org/x/oauth2"
 	"time"
 )

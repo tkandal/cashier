@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nsheridan/cashier/testdata"
 	"github.com/stretchr/testify/assert"
+	"github.com/tkandal/cashier/testdata"
 
 	"golang.org/x/crypto/ssh"
 )
