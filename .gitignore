@@ -12,3 +12,6 @@ http.log
 coverage.txt
 env.bash
 .*.swp
+
+certs
+.cashier.conf
