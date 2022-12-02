@@ -46,7 +46,8 @@ import (
 )
 
 const (
-	sigIntExit = 130
+	sigIntExit    = 130
+	minTLSversion = tls.VersionTLS12
 )
 
 var (
@@ -105,7 +106,7 @@ func Run(conf *config.Config) {
 		log.Fatal(errors.Wrapf(err, "unable to listen on %s:%d", conf.Server.Addr, conf.Server.Port))
 	}
 
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{MinVersion: minTLSversion}
 	if conf.Server.UseTLS {
 		if conf.Server.LetsEncryptServername != "" {
 			m := autocert.Manager{
@@ -186,7 +187,8 @@ func Run(conf *config.Config) {
 
 	logfile := os.Stderr
 	if conf.Server.HTTPLogFile != "" {
-		logfile, err = os.OpenFile(conf.Server.HTTPLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0640)
+		// #nosec
+		logfile, err = os.OpenFile(conf.Server.HTTPLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, os.FileMode(0640))
 		if err != nil {
 			log.Printf("error opening log: %v. logging to stdout", err)
 		}

@@ -68,9 +68,13 @@ func (c *Config) getURL(token *oauth2.Token, url string) (*bytes.Buffer, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
+
 	var body bytes.Buffer
-	io.Copy(&body, resp.Body)
+	_, _ = io.Copy(&body, resp.Body)
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("Gitlab error(http: %d) getting %s: '%s'",
 			resp.StatusCode, url, body.String())
@@ -80,15 +84,15 @@ func (c *Config) getURL(token *oauth2.Token, url string) (*bytes.Buffer, error) 
 
 // Gets info on the current user.
 func (c *Config) getUser(token *oauth2.Token) *serviceUser {
-	url := c.apiurl + "user"
-	body, err := c.getURL(token, url)
+	loc := c.apiurl + "user"
+	body, err := c.getURL(token, loc)
 	if err != nil {
 		c.logMsg(fmt.Errorf("Failed to get user: %w", err))
 		return nil
 	}
 	var user serviceUser
 	if err := json.NewDecoder(body).Decode(&user); err != nil {
-		c.logMsg(fmt.Errorf("Failed to decode user (%s): %s", url, err))
+		c.logMsg(fmt.Errorf("Failed to decode user (%s): %s", loc, err))
 		return nil
 	}
 	return &user
@@ -96,15 +100,15 @@ func (c *Config) getUser(token *oauth2.Token) *serviceUser {
 
 // Gets current user group membership info.
 func (c *Config) checkGroupMembership(token *oauth2.Token, uid int, group string) bool {
-	url := fmt.Sprintf("%sgroups/%s/members/%d", c.apiurl, group, uid)
-	body, err := c.getURL(token, url)
+	loc := fmt.Sprintf("%sgroups/%s/members/%d", c.apiurl, group, uid)
+	body, err := c.getURL(token, loc)
 	if err != nil {
 		c.logMsg(fmt.Errorf("Failed to fetch group memberships: %w", err))
 		return false
 	}
 	var m serviceGroupMember
 	if err := json.NewDecoder(body).Decode(&m); err != nil {
-		c.logMsg(fmt.Errorf("Failed to parse groups (%s): %s", url, err))
+		c.logMsg(fmt.Errorf("Failed to parse groups (%s): %s", loc, err))
 		return false
 	}
 	return m.ID == uid

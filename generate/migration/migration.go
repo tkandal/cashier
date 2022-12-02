@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -37,7 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 	root := strings.TrimSpace(string(gitRoot))
-	ents, err := ioutil.ReadDir(path.Join(root, migrationsPath))
+	ents, err := os.ReadDir(path.Join(root, migrationsPath))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,7 +45,8 @@ func main() {
 		if e.IsDir() {
 			filename := path.Join(migrationsPath, e.Name(), name)
 			fmt.Printf("Wrote empty migration file: %s\n", filename)
-			if err := ioutil.WriteFile(filename, contents, 0644); err != nil {
+			// #nosec
+			if err := os.WriteFile(filename, contents, os.FileMode(0644)); err != nil {
 				log.Fatal(err)
 			}
 		}

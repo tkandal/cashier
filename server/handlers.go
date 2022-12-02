@@ -33,32 +33,32 @@ func (a *app) sign(w http.ResponseWriter, r *http.Request) {
 	}
 	if !a.authprovider.Valid(token) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprint(w, http.StatusText(http.StatusUnauthorized))
+		_, _ = fmt.Fprint(w, http.StatusText(http.StatusUnauthorized))
 		return
 	}
 
 	// Sign the pubkey and issue the cert.
 	req := &lib.SignRequest{}
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, http.StatusText(http.StatusBadRequest))
+		_, _ = fmt.Fprint(w, http.StatusText(http.StatusBadRequest))
 		return
 	}
 
 	if a.requireReason && req.Message == "" {
 		w.Header().Add("X-Need-Reason", "required")
 		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, http.StatusText(http.StatusForbidden))
+		_, _ = fmt.Fprint(w, http.StatusText(http.StatusForbidden))
 		return
 	}
 
 	username := a.authprovider.Username(token)
-	a.authprovider.Revoke(token) // We don't need this anymore.
+	_ = a.authprovider.Revoke(token) // We don't need this anymore.
 	cert, err := a.keysigner.SignUserKey(req, username)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Error signing key")
+		_, _ = fmt.Fprintf(w, "Error signing key")
 		return
 	}
 
@@ -72,7 +72,7 @@ func (a *app) sign(w http.ResponseWriter, r *http.Request) {
 		Response: string(lib.GetPublicKey(cert)),
 	}); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Error signing key")
+		_, _ = fmt.Fprintf(w, "Error signing key")
 		return
 	}
 }
@@ -81,7 +81,7 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.EscapedPath() {
 	case "/auth/login":
 		buf := make([]byte, 32)
-		io.ReadFull(rand.Reader, buf)
+		_, _ = io.ReadFull(rand.Reader, buf)
 		state := hex.EncodeToString(buf)
 		a.setSessionVariable(w, r, "state", state)
 		http.Redirect(w, r, a.authprovider.StartSession(state), http.StatusFound)
@@ -90,7 +90,7 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 		if r.FormValue("state") != state {
 			log.Printf("Not authorized on /auth/callback")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+			_, _ = w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			break
 		}
 		originURL := a.getSessionVariable(r, "origin_url")
@@ -102,8 +102,8 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Error on /auth/callback: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+			_, _ = w.Write([]byte(err.Error()))
 			break
 		}
 		log.Printf("Token found on /auth/callback, redirecting to %s", originURL)
@@ -113,7 +113,7 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 		if !a.authprovider.Valid(token) {
 			log.Printf("Not authorized")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+			_, _ = w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			break
 		}
 		http.Redirect(w, r, originURL, http.StatusFound)
@@ -129,30 +129,30 @@ func (a *app) index(w http.ResponseWriter, r *http.Request) {
 	}{tok.AccessToken}
 	page.Token = encodeString(page.Token)
 	tmpl := template.Must(template.New("token.html").Parse(templates.Token))
-	tmpl.Execute(w, page)
+	_ = tmpl.Execute(w, page)
 }
 
 func (a *app) revoked(w http.ResponseWriter, r *http.Request) {
 	revoked, err := a.certstore.GetRevoked()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, errors.Wrap(err, "error retrieving revoked certs").Error())
+		_, _ = fmt.Fprintf(w, errors.Wrap(err, "error retrieving revoked certs").Error())
 		return
 	}
 	rl, err := a.keysigner.GenerateRevocationList(revoked)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, errors.Wrap(err, "unable to generate KRL").Error())
+		_, _ = fmt.Fprintf(w, errors.Wrap(err, "unable to generate KRL").Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(rl)
+	_, _ = w.Write(rl)
 }
 
 func (a *app) getAllCerts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-CSRF-Token", csrf.Token(r))
 	tmpl := template.Must(template.New("certs.html").Parse(templates.Certs))
-	tmpl.Execute(w, map[string]interface{}{
+	_ = tmpl.Execute(w, map[string]interface{}{
 		csrf.TemplateTag: csrf.TemplateField(r),
 	})
 }
@@ -162,21 +162,26 @@ func (a *app) getCertsJSON(w http.ResponseWriter, r *http.Request) {
 	certs, err := a.certstore.List(includeExpired)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, http.StatusText(http.StatusInternalServerError))
+		_, _ = fmt.Fprint(w, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 	if err := json.NewEncoder(w).Encode(certs); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, http.StatusText(http.StatusInternalServerError))
+		_, _ = fmt.Fprint(w, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 }
 
 func (a *app) revoke(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		log.Printf("parse form failed; error = %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("unable to parse form"))
+		return
+	}
 	if err := a.certstore.Revoke(r.Form["cert_id"]); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Unable to revoke certs"))
+		_, _ = w.Write([]byte("Unable to revoke certs"))
 	} else {
 		http.Redirect(w, r, "/admin/certs", http.StatusSeeOther)
 	}

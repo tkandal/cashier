@@ -3,14 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"os"
-
 	"github.com/nsheridan/wkfs/s3"
 	"github.com/tkandal/cashier/lib"
 	"github.com/tkandal/cashier/server"
 	"github.com/tkandal/cashier/server/config"
 	"github.com/tkandal/cashier/server/wkfs/vaultfs"
+	"log"
+	"os"
+	"path/filepath"
 )
 
 var (
@@ -24,6 +24,9 @@ func main() {
 		fmt.Printf("%s\n", lib.Version)
 		os.Exit(0)
 	}
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.LUTC)
+	log.SetPrefix(filepath.Base(os.Args[0] + ": "))
+
 	conf, err := config.ReadConfig(*cfg)
 	if err != nil {
 		log.Fatal(err)
