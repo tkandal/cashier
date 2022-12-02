@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"embed"
 	"encoding/base64"
@@ -12,6 +13,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/csrf"
@@ -40,6 +44,44 @@ import (
 	"github.com/tkandal/cashier/server/signer"
 	"github.com/tkandal/cashier/server/store"
 )
+
+const (
+	sigIntExit = 130
+)
+
+var (
+	catchSignals = []os.Signal{syscall.SIGHUP, os.Interrupt, syscall.SIGTERM}
+	idleClosed   = make(chan struct{})
+)
+
+func handleInterrupts(s *http.Server) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, catchSignals...)
+	select {
+	case sig := <-sigChan:
+
+		log.Printf("received signal %v; hold on to your devices ...", sig)
+		if sig != os.Interrupt {
+			defer close(idleClosed)
+		}
+		signal.Reset(catchSignals...)
+
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(s.ReadTimeout))
+		defer cancel()
+
+		if err := s.Shutdown(ctx); err != nil {
+			log.Printf("stop http server failed; error = %v\n", err)
+			return
+		}
+		log.Printf("http server is shut down\n")
+
+		if sig == os.Interrupt {
+			if err := signalProc(os.Getpid(), os.Interrupt); err != nil {
+				os.Exit(sigIntExit)
+			}
+		}
+	}
+}
 
 func loadCerts(certFile, keyFile string) (tls.Certificate, error) {
 	key, err := wkfs.ReadFile(keyFile)
@@ -163,8 +205,14 @@ func Run(conf *config.Config) {
 		ReadHeaderTimeout: 20 * time.Second,
 	}
 
+	go handleInterrupts(s)
+
 	log.Printf("Starting server on %s", laddr)
-	s.Serve(l)
+	if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
+		log.Printf("start server failed; error = %v\n", err)
+	}
+	<-idleClosed
+	log.Printf("%s exiting ...\n", filepath.Base(os.Args[0]))
 }
 
 // mwVersion is middleware to add an X-Cashier-Version header to the response.
@@ -267,4 +315,17 @@ func (a *app) authed(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func signalProc(pid int, sig os.Signal) error {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		log.Printf("find process %d failed; error = %v\n", err)
+		return err
+	}
+	if err := proc.Signal(sig); err != nil {
+		log.Printf("send %v to %d failed; error = %v", err)
+		return err
+	}
+	return nil
 }
