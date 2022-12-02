@@ -17,15 +17,13 @@ const (
 	name           = "dataporten"
 	feidePrefix    = "feide:"
 	defaultTimeout = 20 * time.Second
+	issuer         = "https://auth.dataporten.no"
 )
 
 var (
 	oidcScopes = []string{
 		oidc.ScopeOpenID,
 		"userid-feide",
-		"groups",
-		"userinfo-entitlement",
-		"email",
 	}
 )
 
@@ -47,7 +45,7 @@ func New(c *config.Auth) (*Config, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))
 	defer cancel()
 
-	provider, err := oidc.NewProvider(ctx, c.Provider)
+	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
 		log.Printf("dataporten: get OIDC provider failed; error = %v\n", err)
 		return nil, err

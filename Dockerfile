@@ -1,5 +1,5 @@
 FROM golang:latest as build
-LABEL maintainer="nsheridan@gmail.com"
+LABEL maintainer="trond.kandal@ntnu.no"
 WORKDIR /build
 COPY go.mod .
 COPY go.sum .

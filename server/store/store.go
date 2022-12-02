@@ -13,7 +13,7 @@ import (
 // New returns a new configured database.
 func New(c config.Database) (CertStorer, error) {
 	switch c["type"] {
-	case "mysql", "sqlite":
+	case "mysql", "sqlite", postgres:
 		return newSQLStore(c)
 	case "mem":
 		return newMemoryStore(), nil
