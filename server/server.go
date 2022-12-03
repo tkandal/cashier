@@ -61,7 +61,7 @@ func handleInterrupts(s *http.Server) {
 	select {
 	case sig := <-sigChan:
 
-		log.Printf("received signal %v; hold on to your devices ...", sig)
+		log.Printf("received signal %v; hold on to your devices ...\n", sig)
 		if sig != os.Interrupt {
 			defer close(idleClosed)
 		}
@@ -278,6 +278,13 @@ func (a *app) routes() {
 
 	// static files
 	a.router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
+	// A catch-all handler when path does not exist.
+	a.router.NotFoundHandler = a.router.NewRoute().HandlerFunc(a.notFound).GetHandler()
+}
+
+func (a *app) notFound(w http.ResponseWriter, r *http.Request) {
+	log.Printf("path not found %s\n", r.URL.Path)
+	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
 func (a *app) getAuthToken(r *http.Request) *oauth2.Token {
