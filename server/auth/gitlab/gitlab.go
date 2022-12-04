@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,7 +60,7 @@ func (c *Config) logMsg(message error) {
 
 // A new oauth2 http client.
 func (c *Config) newClient(token *oauth2.Token) *http.Client {
-	return c.config.Client(oauth2.NoContext, token)
+	return c.config.Client(context.Background(), token)
 }
 
 func (c *Config) getURL(token *oauth2.Token, url string) (*bytes.Buffer, error) {
