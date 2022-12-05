@@ -275,16 +275,13 @@ func (a *app) routes() {
 		_, _ = fmt.Fprintln(w, http.StatusText(http.StatusOK))
 	})
 	a.router.Methods(http.MethodGet).Path("/metrics").Handler(promhttp.Handler())
+	a.router.Methods(http.MethodGet).Path("/healthz").HandlerFunc(a.healthz)
+	a.router.Methods(http.MethodGet).Path("/readiness").HandlerFunc(a.readiness)
 
 	// static files
 	a.router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
 	// A catch-all handler when path does not exist.
 	a.router.NotFoundHandler = a.router.NewRoute().HandlerFunc(a.notFound).GetHandler()
-}
-
-func (a *app) notFound(w http.ResponseWriter, r *http.Request) {
-	log.Printf("path not found %s\n", r.URL.Path)
-	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
 func (a *app) getAuthToken(r *http.Request) *oauth2.Token {
@@ -324,6 +321,24 @@ func (a *app) authed(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (a *app) healthz(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, http.StatusText(http.StatusOK), http.StatusOK)
+}
+
+func (a *app) readiness(w http.ResponseWriter, _ *http.Request) {
+	if _, err := a.certstore.List(false); err != nil {
+		log.Printf("list certs failed; error = %v\n", err)
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+	http.Error(w, http.StatusText(http.StatusOK), http.StatusOK)
+}
+
+func (a *app) notFound(w http.ResponseWriter, r *http.Request) {
+	log.Printf("path not found %s\n", r.URL.Path)
+	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
 func signalProc(pid int, sig os.Signal) error {
