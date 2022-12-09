@@ -108,7 +108,7 @@ func send(sr *lib.SignRequest, token, ca string, ValidateTLSCertificate bool) (*
 		return nil, errors.Wrap(err, "unable to parse CA url")
 	}
 	if strings.HasSuffix(u.Path, "/") {
-		u.Path = u.Path[:len(u.Path)-1]
+		u.Path = strings.TrimSuffix(u.Path, "/")
 	}
 	u.Path = fmt.Sprintf("%s/sign", u.Path)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(reqTimeout))

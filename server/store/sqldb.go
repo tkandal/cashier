@@ -87,6 +87,8 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 		q.Add("connect_timeout", "20")
 		pgURL.RawQuery = q.Encode()
 		dsn = pgURL.String()
+	default:
+		return nil, ErrDriverNotSupported
 	}
 
 	conn, err := sqlx.Connect(driver, dsn)

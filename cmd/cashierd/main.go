@@ -19,17 +19,24 @@ var (
 )
 
 func main() {
+	if err := realMain(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func realMain() error {
 	flag.Parse()
 	if *version {
 		fmt.Printf("%s\n", lib.Version)
-		os.Exit(0)
+		return nil
 	}
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.LUTC)
 	log.SetPrefix(filepath.Base(os.Args[0] + ": "))
 
 	conf, err := config.ReadConfig(*cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("read config failed; error = %v\n", err)
+		return err
 	}
 
 	// Register well-known filesystems.
@@ -45,4 +52,5 @@ func main() {
 
 	// Start the server
 	server.Run(conf)
+	return nil
 }

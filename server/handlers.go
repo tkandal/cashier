@@ -32,8 +32,7 @@ func (a *app) sign(w http.ResponseWriter, r *http.Request) {
 		AccessToken: t,
 	}
 	if !a.authprovider.Valid(token) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = fmt.Fprint(w, http.StatusText(http.StatusUnauthorized))
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
 
@@ -41,15 +40,13 @@ func (a *app) sign(w http.ResponseWriter, r *http.Request) {
 	req := &lib.SignRequest{}
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		_, _ = fmt.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, http.StatusText(http.StatusBadRequest))
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
 	if a.requireReason && req.Message == "" {
 		w.Header().Add("X-Need-Reason", "required")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = fmt.Fprint(w, http.StatusText(http.StatusForbidden))
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
 
@@ -84,13 +81,12 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.ReadFull(rand.Reader, buf)
 		state := hex.EncodeToString(buf)
 		a.setSessionVariable(w, r, "state", state)
-		http.Redirect(w, r, a.authprovider.StartSession(state), http.StatusFound)
+		http.Redirect(w, r, a.authprovider.StartSession(state), http.StatusSeeOther)
 	case "/auth/callback":
 		state := a.getSessionVariable(r, "state")
 		if r.FormValue("state") != state {
 			log.Printf("Not authorized on /auth/callback")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			break
 		}
 		originURL := a.getSessionVariable(r, "origin_url")
@@ -112,13 +108,12 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 		// if we don't check the token here, it gets into an auth loop
 		if !a.authprovider.Valid(token) {
 			log.Printf("Not authorized")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			break
 		}
 		http.Redirect(w, r, originURL, http.StatusFound)
 	default:
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -161,13 +156,11 @@ func (a *app) getCertsJSON(w http.ResponseWriter, r *http.Request) {
 	includeExpired, _ := strconv.ParseBool(r.URL.Query().Get("all"))
 	certs, err := a.certstore.List(includeExpired)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprint(w, http.StatusText(http.StatusInternalServerError))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	if err := json.NewEncoder(w).Encode(certs); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprint(w, http.StatusText(http.StatusInternalServerError))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
