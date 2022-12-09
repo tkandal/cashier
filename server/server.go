@@ -55,12 +55,11 @@ var (
 	idleClosed   = make(chan struct{})
 )
 
-func handleInterrupts(s *http.Server) {
+func (a *app) handleInterrupts(s *http.Server) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, catchSignals...)
 	select {
 	case sig := <-sigChan:
-
 		log.Printf("received signal %v; hold on to your devices ...\n", sig)
 		if sig != os.Interrupt {
 			defer close(idleClosed)
@@ -75,6 +74,13 @@ func handleInterrupts(s *http.Server) {
 			return
 		}
 		log.Printf("http server is shut down\n")
+
+		if a.certstore != nil {
+			if err := a.certstore.Close(); err != nil {
+				log.Printf("close cert store failed; error = %v\n", err)
+			}
+			log.Printf("cert store is closed\n")
+		}
 
 		if sig == os.Interrupt {
 			if err := signalProc(os.Getpid(), os.Interrupt); err != nil {
@@ -207,7 +213,7 @@ func Run(conf *config.Config) {
 		ReadHeaderTimeout: 20 * time.Second,
 	}
 
-	go handleInterrupts(s)
+	go ctx.handleInterrupts(s)
 
 	log.Printf("Starting server on %s", laddr)
 	if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
