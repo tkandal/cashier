@@ -48,6 +48,8 @@ import (
 const (
 	sigIntExit    = 130
 	minTLSversion = tls.VersionTLS12
+	sessionName   = "session"
+	stateLen      = 32
 )
 
 var (
@@ -146,6 +148,8 @@ func Run(conf *config.Config) {
 	// Unprivileged section
 	metrics.Register()
 
+	cs := sessions.NewCookieStore([]byte(conf.Server.CookieSecret))
+
 	var authprovider auth.Provider
 	switch conf.Auth.Provider {
 	case "github":
@@ -157,7 +161,7 @@ func Run(conf *config.Config) {
 	case "microsoft":
 		authprovider, err = microsoft.New(conf.Auth)
 	case "dataporten":
-		authprovider, err = dataporten.New(conf.Auth)
+		authprovider, err = dataporten.New(conf.Auth, cs)
 	default:
 		log.Fatalf("Unknown provider %s\n", conf.Auth.Provider)
 	}
@@ -176,7 +180,7 @@ func Run(conf *config.Config) {
 	}
 
 	ctx := &app{
-		cookiestore:   sessions.NewCookieStore([]byte(conf.Server.CookieSecret)),
+		cookiestore:   cs,
 		requireReason: conf.Server.RequireReason,
 		keysigner:     keysigner,
 		certstore:     certstore,
@@ -215,7 +219,7 @@ func Run(conf *config.Config) {
 
 	go ctx.handleInterrupts(s)
 
-	log.Printf("Starting server on %s", laddr)
+	log.Printf("Starting server on %s\n", laddr)
 	if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
 		log.Printf("start server failed; error = %v\n", err)
 	}
@@ -303,7 +307,7 @@ func (a *app) setAuthToken(w http.ResponseWriter, r *http.Request, token *oauth2
 }
 
 func (a *app) getSessionVariable(r *http.Request, key string) string {
-	session, _ := a.cookiestore.Get(r, "session")
+	session, _ := a.cookiestore.Get(r, sessionName)
 	v, ok := session.Values[key].(string)
 	if !ok {
 		v = ""
@@ -312,7 +316,7 @@ func (a *app) getSessionVariable(r *http.Request, key string) string {
 }
 
 func (a *app) setSessionVariable(w http.ResponseWriter, r *http.Request, key, value string) {
-	session, _ := a.cookiestore.Get(r, "session")
+	session, _ := a.cookiestore.Get(r, sessionName)
 	session.Values[key] = value
 	_ = session.Save(r, w)
 }
@@ -350,11 +354,11 @@ func (a *app) notFound(w http.ResponseWriter, r *http.Request) {
 func signalProc(pid int, sig os.Signal) error {
 	proc, err := os.FindProcess(pid)
 	if err != nil {
-		log.Printf("find process %d failed; error = %v\n", err)
+		log.Printf("find process %d failed; error = %v\n", pid, err)
 		return err
 	}
 	if err := proc.Signal(sig); err != nil {
-		log.Printf("send %v to %d failed; error = %v", err)
+		log.Printf("send %v to %d failed; error = %v\n", sig, pid, err)
 		return err
 	}
 	return nil

@@ -38,23 +38,22 @@ func main() {
 	}
 	log.SetPrefix("cashier: ")
 	log.SetFlags(0)
-	var err error
 
 	c, err := client.ReadConfig(*cfg)
 	if err != nil {
 		log.Printf("Configuration error: %v\n", err)
 	}
-	fmt.Println("Generating new key pair")
+	_, _ = fmt.Fprintln(os.Stdout, "Generating new key pair")
 	priv, pub, err := client.GenerateKey(client.KeyType(c.Keytype), client.KeySize(c.Keysize))
 	if err != nil {
 		log.Fatalln("Error generating key pair: ", err)
 	}
-	fmt.Printf("Your browser has been opened to visit %s\n", c.CA)
+	_, _ = fmt.Fprintf(os.Stdout, "Your browser has been opened to visit %s\n", c.CA)
 	if err := browser.OpenURL(c.CA); err != nil {
 		fmt.Println("Error launching web browser. Go to the link in your web browser")
 	}
 
-	fmt.Print("Enter token: ")
+	_, _ = fmt.Fprint(os.Stdout, "Enter token: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	var buffer bytes.Buffer
 	for scanner.Scan(); scanner.Text() != "."; scanner.Scan() {
@@ -87,5 +86,5 @@ func main() {
 	if err := client.SavePrivateFiles(c.PublicFilePrefix, cert, priv); err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Println("Credentials added.")
+	_, _ = fmt.Fprintln(os.Stdout, "Credentials added.")
 }

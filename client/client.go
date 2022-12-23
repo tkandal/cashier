@@ -62,8 +62,7 @@ func SavePrivateFiles(prefix string, cert *ssh.Certificate, key Key) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(_prefix, pem.EncodeToMemory(pemBlock), onlyOwner)
-	return err
+	return os.WriteFile(_prefix, pem.EncodeToMemory(pemBlock), onlyOwner)
 }
 
 // InstallCert adds the private key and signed certificate to the ssh agent.
@@ -143,11 +142,15 @@ func send(sr *lib.SignRequest, token, ca string, ValidateTLSCertificate bool) (*
 	return signResponse, nil
 }
 
-func promptForReason() (message string) {
-	fmt.Print("Enter message: ")
+func promptForReason() string {
+	_, _ = fmt.Fprint(os.Stdout, "Enter message: ")
+	var message string
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {
 		message = scanner.Text()
+	}
+	if err := scanner.Err(); err != nil {
+		message = ""
 	}
 	return message
 }

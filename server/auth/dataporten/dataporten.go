@@ -2,22 +2,35 @@ package dataporten
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gorilla/sessions"
+	"github.com/pkg/errors"
+	"github.com/tkandal/cashier/server/auth"
 	"github.com/tkandal/cashier/server/config"
 	"golang.org/x/oauth2"
+	"io"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	name           = "dataporten"
-	feidePrefix    = "feide:"
-	defaultTimeout = 20 * time.Second
-	issuer         = "https://auth.dataporten.no"
+	name            = "dataporten"
+	feidePrefix     = "feide:"
+	defaultTimeout  = 20 * time.Second
+	issuer          = "https://auth.dataporten.no"
+	challengeLen    = 32
+	codeChallenge   = "code_challenge"
+	challengeMethod = "code_challenge_method"
+	hashMethod      = "S256"
+	codeVerifier    = "code_verifier"
 )
 
 var (
@@ -30,13 +43,14 @@ var (
 // Config is an implementation of `auth.Provider` for authenticating using a
 // Gitlab account.
 type Config struct {
-	config   *oauth2.Config
-	provider *oidc.Provider
-	log      bool
+	config      *oauth2.Config
+	provider    *oidc.Provider
+	cookieStore *sessions.CookieStore
+	log         bool
 }
 
 // New creates a new provider.
-func New(c *config.Auth) (*Config, error) {
+func New(c *config.Auth, cs *sessions.CookieStore) (*Config, error) {
 	logOpt, err := strconv.ParseBool(c.ProviderOpts["log"])
 	if err != nil {
 		logOpt = false
@@ -59,9 +73,10 @@ func New(c *config.Auth) (*Config, error) {
 	}
 
 	return &Config{
-		config:   oauth2Config,
-		provider: provider,
-		log:      logOpt,
+		config:      oauth2Config,
+		provider:    provider,
+		cookieStore: cs,
+		log:         logOpt,
 	}, nil
 }
 
@@ -81,16 +96,43 @@ func (c *Config) Revoke(_ *oauth2.Token) error {
 }
 
 // StartSession retrieves an authentication endpoint.
-func (c *Config) StartSession(state string) string {
-	opts := []oauth2.AuthCodeOption{}
+func (c *Config) StartSession(state string, w http.ResponseWriter, r *http.Request) string {
+	verifier, challenge, err := generateChallenge(challengeLen)
+	if err != nil {
+		return ""
+	}
+
+	sess, err := c.cookieStore.Get(r, auth.SessionName)
+	if err != nil {
+		log.Printf("get session failed; error = %v\n", err)
+		return ""
+	}
+	sess.Values[codeVerifier] = verifier
+	if err = sess.Save(r, w); err != nil {
+		log.Printf("save session failed; error = %v\n", err)
+		return ""
+	}
+
+	opts := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam(codeChallenge, challenge),
+		oauth2.SetAuthURLParam(challengeMethod, hashMethod),
+	}
 	return c.config.AuthCodeURL(state, opts...)
 }
 
 // Exchange authorizes the session and returns an access token.
-func (c *Config) Exchange(code string) (*oauth2.Token, error) {
+func (c *Config) Exchange(code string, r *http.Request) (*oauth2.Token, error) {
+	sess, err := c.cookieStore.Get(r, auth.SessionName)
+	verifier, ok := sess.Values[codeVerifier].(string)
+	if !ok {
+		return nil, errors.Wrap(err, "could not get verifier token")
+	}
+
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))
 	defer cancel()
-	opts := []oauth2.AuthCodeOption{}
+	opts := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam(codeVerifier, verifier),
+	}
 
 	oauth2Token, err := c.config.Exchange(ctx, code, opts...)
 	if err != nil {
@@ -155,4 +197,20 @@ func (c Claims) String() string {
 		return ""
 	}
 	return str.String()
+}
+
+func generateChallenge(n int) (string, string, error) {
+	b := make([]byte, n)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return "", "", err
+	}
+	verifier := base64.RawURLEncoding.EncodeToString(b)
+
+	h := sha256.New()
+	if _, err := h.Write([]byte(verifier)); err != nil {
+		return "", "", err
+	}
+	challenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+
+	return verifier, challenge, nil
 }

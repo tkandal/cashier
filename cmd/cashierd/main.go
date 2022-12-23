@@ -27,7 +27,7 @@ func main() {
 func realMain() error {
 	flag.Parse()
 	if *version {
-		fmt.Printf("%s\n", lib.Version)
+		_, _ = fmt.Fprintf(os.Stdout, "%s\n", lib.Version)
 		return nil
 	}
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.LUTC)

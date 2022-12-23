@@ -77,11 +77,11 @@ func (a *app) sign(w http.ResponseWriter, r *http.Request) {
 func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.EscapedPath() {
 	case "/auth/login":
-		buf := make([]byte, 32)
+		buf := make([]byte, stateLen)
 		_, _ = io.ReadFull(rand.Reader, buf)
 		state := hex.EncodeToString(buf)
 		a.setSessionVariable(w, r, "state", state)
-		http.Redirect(w, r, a.authprovider.StartSession(state), http.StatusSeeOther)
+		http.Redirect(w, r, a.authprovider.StartSession(state, w, r), http.StatusSeeOther)
 	case "/auth/callback":
 		state := a.getSessionVariable(r, "state")
 		if r.FormValue("state") != state {
@@ -94,7 +94,7 @@ func (a *app) auth(w http.ResponseWriter, r *http.Request) {
 			originURL = "/"
 		}
 		code := r.FormValue("code")
-		token, err := a.authprovider.Exchange(code)
+		token, err := a.authprovider.Exchange(code, r)
 		if err != nil {
 			log.Printf("Error on /auth/callback: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)

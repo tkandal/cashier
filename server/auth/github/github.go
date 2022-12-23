@@ -56,7 +56,7 @@ func New(c *config.Auth) (*Config, error) {
 
 // A new oauth2 http client.
 func (c *Config) newClient(token *oauth2.Token) *http.Client {
-	return c.config.Client(oauth2.NoContext, token)
+	return c.config.Client(context.Background(), token)
 }
 
 // Name returns the name of the provider.
@@ -97,12 +97,12 @@ func (c *Config) Revoke(token *oauth2.Token) error {
 }
 
 // StartSession retrieves an authentication endpoint from Github.
-func (c *Config) StartSession(state string) string {
+func (c *Config) StartSession(state string, _ http.ResponseWriter, _ *http.Request) string {
 	return c.config.AuthCodeURL(state)
 }
 
 // Exchange authorizes the session and returns an access token.
-func (c *Config) Exchange(code string) (*oauth2.Token, error) {
+func (c *Config) Exchange(code string, _ *http.Request) (*oauth2.Token, error) {
 	t, err := c.config.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return nil, err
