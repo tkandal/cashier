@@ -22,21 +22,22 @@ import (
 )
 
 const (
-	name            = "dataporten"
-	feidePrefix     = "feide:"
-	defaultTimeout  = 20 * time.Second
-	issuer          = "https://auth.dataporten.no"
-	challengeLen    = 32
-	codeChallenge   = "code_challenge"
-	challengeMethod = "code_challenge_method"
-	hashMethod      = "S256"
-	codeVerifier    = "code_verifier"
+	name             = "dataporten"
+	feidePrefix      = "feide:"
+	defaultTimeout   = 20 * time.Second
+	issuer           = "https://auth.dataporten.no"
+	challengeLen     = 32
+	codeChallenge    = "code_challenge"
+	challengeMethod  = "code_challenge_method"
+	hashMethod       = "S256"
+	codeVerifier     = "code_verifier"
+	scopeUserIDFeide = "userid-feide"
 )
 
 var (
 	oidcScopes = []string{
 		oidc.ScopeOpenID,
-		"userid-feide",
+		scopeUserIDFeide,
 	}
 )
 
@@ -104,7 +105,7 @@ func (c *Config) StartSession(state string, w http.ResponseWriter, r *http.Reque
 
 	sess, err := c.cookieStore.Get(r, auth.SessionName)
 	if err != nil {
-		log.Printf("get session failed; error = %v\n", err)
+		log.Printf("get session from cookie-store failed; error = %v\n", err)
 		return ""
 	}
 	sess.Values[codeVerifier] = verifier
@@ -123,9 +124,12 @@ func (c *Config) StartSession(state string, w http.ResponseWriter, r *http.Reque
 // Exchange authorizes the session and returns an access token.
 func (c *Config) Exchange(code string, r *http.Request) (*oauth2.Token, error) {
 	sess, err := c.cookieStore.Get(r, auth.SessionName)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get session from cookie-store")
+	}
 	verifier, ok := sess.Values[codeVerifier].(string)
 	if !ok {
-		return nil, errors.Wrap(err, "could not get verifier token")
+		return nil, errors.Wrap(err, "could not get verifier token fromn session")
 	}
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))

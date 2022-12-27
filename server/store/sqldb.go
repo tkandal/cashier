@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	postgres    = "postgres"
-	defaultPort = ":5432"
+	postgres         = "postgres"
+	mysqlDefaultPort = ":3306"
+	pgDefaultPort    = ":5432"
 )
 
 var (
@@ -53,7 +54,7 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 		address := c["address"]
 		_, _, err := net.SplitHostPort(address)
 		if err != nil {
-			address = address + ":3306"
+			address = address + mysqlDefaultPort
 		}
 		m := mysql.NewConfig()
 		m.User = c["username"]
@@ -74,7 +75,7 @@ func newSQLStore(c config.Database) (*sqlStore, error) {
 		address := c["address"]
 		_, _, err := net.SplitHostPort(address)
 		if err != nil {
-			address = address + defaultPort
+			address = address + pgDefaultPort
 		}
 		pgURL := url.URL{
 			Scheme: driver,
@@ -231,6 +232,7 @@ func (db *sqlStore) Revoke(ids []string) error {
 
 	switch db.driver {
 	case postgres:
+		// TODO: Anybody has a better suggestion?
 		q = "UPDATE issued_certs SET revoked = true WHERE key_id = $1"
 		for _, id := range ids {
 			_, err = db.conn.Exec(q, id)

@@ -119,6 +119,7 @@ func send(sr *lib.SignRequest, token, ca string, ValidateTLSCertificate bool) (*
 	}
 	req.Header.Set("Content-Type", applicationJSON+";charset=utf-8")
 	req.Header.Add("Accept", applicationJSON)
+	req.Header.Set("Accept-Charset", "utf-8")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := client.Do(req)
 	if err != nil {
